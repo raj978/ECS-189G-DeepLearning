@@ -1,0 +1,11 @@
+# macOS Finder metadata
+.DS_Store
+
+# Windows thumbnail cache
+Thumbs.db
+
+# JetBrains IDE settings
+.idea/
+
+# All XML files (e.g., config, project files)
+*.xml
