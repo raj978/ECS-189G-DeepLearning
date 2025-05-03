@@ -12,5 +12,5 @@ Thumbs.db
 
 stage_*_data
 venv
-models
+*.pt
 __pycache__

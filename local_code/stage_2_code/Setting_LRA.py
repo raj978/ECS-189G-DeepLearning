@@ -35,9 +35,12 @@ class Setting_LRA(setting):
 
         save_path = os.path.join(self.result_save_dir, "metrics.json")
         with open(save_path, "w") as f:
-            json.dump(history, f)
+            json.dump(metrics, f)
 
-        save_path = os.path.join(self.curve_save_dir, "mlp_learning_curve_stage_2.png")
+        save_dir = os.path.join(self.curve_save_dir, "stage_2")
+        save_path = os.path.join(save_dir, "mlp_learning_curve.png")
+        os.makedirs(save_dir, exist_ok=True)
+
         self.evaluate.gen_learning_curve(history, save_path)
 
         return metrics
