@@ -76,7 +76,7 @@ if 1:
         os.makedirs(result_destination_folder_path, exist_ok=True)
 
         evaluate_obj = Evaluate_Metrics("metrics", "")
-        plot_save_dir = "../../figures"
+        plot_save_dir = "../../figures/stage_2"
         evaluate_obj.plot_path = os.path.join(
             plot_save_dir, f"{model_name}_learning_curve.png"
         )
