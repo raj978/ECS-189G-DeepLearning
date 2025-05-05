@@ -6,7 +6,6 @@ Concrete MethodModule class for a specific learning MethodModule
 # License: TBD
 
 import json
-import os
 
 import numpy as np
 import torch
@@ -23,42 +22,93 @@ class Method_MLP(method, nn.Module):
     # it defines the learning rate for gradient descent based optimizer for model learning
     learning_rate = 1e-3
 
+    model_path = ""
+    hist_path = ""
+
+    architecture = "small"
+    loss_fn = "cross"
+    opt = "adam"
+
     # it defines the the MLP model architecture, e.g.,
     # how many layers, size of variables in each layer, activation function, etc.
     # the size of the input/output portal of the model architecture should be consistent with our data input and desired output
+    # def __init__(self, mName, mDescription):
+    #     method.__init__(self, mName, mDescription)
+    #     nn.Module.__init__(self)
+    #     # check here for nn.Linear doc: https://pytorch.org/docs/stable/generated/torch.nn.Linear.html
+    #     self.fc_layer_1 = nn.Linear(784, 128)
+    #     # check here for nn.ReLU doc: https://pytorch.org/docs/stable/generated/torch.nn.ReLU.html
+    #     self.activation_func_1 = nn.ReLU()
+    #     self.fc_layer_2 = nn.Linear(128, 10)
+    #     # check here for nn.Softmax doc: https://pytorch.org/docs/stable/generated/torch.nn.Softmax.html
+    #     self.activation_func_2 = nn.Softmax(dim=1)
     def __init__(self, mName, mDescription):
         method.__init__(self, mName, mDescription)
         nn.Module.__init__(self)
-        # check here for nn.Linear doc: https://pytorch.org/docs/stable/generated/torch.nn.Linear.html
-        self.fc_layer_1 = nn.Linear(784, 128)
-        # check here for nn.ReLU doc: https://pytorch.org/docs/stable/generated/torch.nn.ReLU.html
-        self.activation_func_1 = nn.ReLU()
-        self.fc_layer_2 = nn.Linear(128, 10)
-        # check here for nn.Softmax doc: https://pytorch.org/docs/stable/generated/torch.nn.Softmax.html
-        self.activation_func_2 = nn.Softmax(dim=1)
+        # choose one of several preset architectures
+        self.net = self.build_model(self.architecture)
+
+        losses = {
+            "cross": nn.CrossEntropyLoss(),
+            "mse": nn.MSELoss(),
+            "mae": nn.L1Loss(),
+        }
+        self.loss_function = losses[self.loss_fn]
+        self.opt = self.opt
+
+    def build_model(self, arch):
+        layers = []
+        if arch == "small":
+            dims = [784, 128, 10]
+        elif arch == "medium":
+            dims = [784, 256, 128, 64, 10]
+        elif arch == "wide":
+            dims = [784, 512, 512, 256, 10]
+        else:
+            raise ValueError(f"Unknown arch: {arch}")
+
+        for i in range(len(dims) - 1):
+            layers.append(nn.Linear(dims[i], dims[i + 1]))
+            # add activation on all but last layer
+            if i < len(dims) - 2:
+                layers.append(nn.BatchNorm1d(dims[i + 1]))
+                layers.append(nn.LeakyReLU(0.1, inplace=True))
+                layers.append(nn.Dropout(0.5))
+        # for classification add log-softmax
+        layers.append(nn.LogSoftmax(dim=1))
+        return nn.Sequential(*layers)
 
     # it defines the forward propagation function for input x
     # this function will calculate the output layer by layer
 
+    # def forward(self, x):
+    #     """Forward propagation"""
+    #     # hidden layer embeddings
+    #     h = self.activation_func_1(self.fc_layer_1(x))
+    #     # outout layer result
+    #     # self.fc_layer_2(h) will be a nx2 tensor
+    #     # n (denotes the input instance number): 0th dimension; 2 (denotes the class number): 1st dimension
+    #     # we do softmax along dim=1 to get the normalized classification probability distributions for each instance
+    #     y_pred = self.activation_func_2(self.fc_layer_2(h))
+    #     return y_pred
     def forward(self, x):
-        """Forward propagation"""
-        # hidden layer embeddings
-        h = self.activation_func_1(self.fc_layer_1(x))
-        # outout layer result
-        # self.fc_layer_2(h) will be a nx2 tensor
-        # n (denotes the input instance number): 0th dimension; 2 (denotes the class number): 1st dimension
-        # we do softmax along dim=1 to get the normalized classification probability distributions for each instance
-        y_pred = self.activation_func_2(self.fc_layer_2(h))
-        return y_pred
+        return self.net(x)
 
     # backward error propagation will be implemented by pytorch automatically
     # so we don't need to define the error backpropagation function here
 
     def train(self, X, y):
+        if self.opt == "adam":
+            optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        elif self.opt == "sgd":
+            optimizer = torch.optim.SGD(
+                self.parameters(), lr=self.learning_rate, momentum=0.9
+            )
+
         # check here for the torch.optim doc: https://pytorch.org/docs/stable/optim.html
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        # optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         # check here for the nn.CrossEntropyLoss doc: https://pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html
-        loss_function = nn.CrossEntropyLoss()
+        # loss_function = nn.CrossEntropyLoss()
         # for training accuracy investigation purpose
         accuracy_evaluator = Evaluate_Metrics("training evaluator", "")
 
@@ -75,7 +125,7 @@ class Method_MLP(method, nn.Module):
             # convert y to torch.tensor as well
             y_true = torch.LongTensor(np.array(y))
             # calculate the training loss
-            train_loss = loss_function(y_pred, y_true)
+            train_loss = self.loss_function(y_pred, y_true)
 
             # check here for the gradient init doc: https://pytorch.org/docs/stable/generated/torch.optim.Optimizer.zero_grad.html
             optimizer.zero_grad()
@@ -119,18 +169,15 @@ class Method_MLP(method, nn.Module):
         # instances will get the labels corresponding to the largest probability
         return y_pred.max(1)[1]
 
-    def run(self, model_save_dir=None):
+    def run(self):
         print("method running...")
         print("--start training...")
         history = self.train(self.data["train"]["X"], self.data["train"]["y"])
         print("\n--start testing...")
         pred_y = self.test(self.data["test"]["X"])
-        if model_save_dir:
-            save_dir = os.path.join(model_save_dir, "stage_2")
-            os.makedirs(save_dir, exist_ok=True)
 
-            torch.save(self, os.path.join(save_dir, "mlp_full_model.pt"))
-            with open(os.path.join(save_dir, "history.json"), "w") as f:
-                json.dump(history, f)
+        torch.save(self, self.model_path)
+        with open(self.hist_path, "w") as f:
+            json.dump(history, f)
 
         return history, {"pred_y": pred_y, "true_y": self.data["test"]["y"]}

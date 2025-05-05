@@ -13,6 +13,7 @@ from local_code.base_class.evaluate import evaluate
 
 class Evaluate_Metrics(evaluate):
     data = None
+    plot_path = ""
 
     def eval_accuracy(self):
         y_true = self.data["true_y"]
@@ -62,10 +63,10 @@ class Evaluate_Metrics(evaluate):
 
         return metrics
 
-    def gen_learning_curve(self, hist, save_path):
+    def gen_learning_curve(self, hist):
         plt.plot(hist["epoch"], hist["accuracy"], label="Training accuracy")
         plt.plot(hist["epoch"], hist["loss"], label="Training loss")
         plt.xlabel("Epoch")
         plt.legend()
-        plt.savefig(save_path, bbox_inches="tight")
+        plt.savefig(self.plot_path, bbox_inches="tight")
         plt.close()
