@@ -82,11 +82,22 @@ class Setting_CNN(setting):
         data = self.data_obj.load()
         
         # Check device
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"Using device: {device}")
+        
+        # Move model to device - ensure it's moved first before any data
+        self.method_obj.to(device)
+        self.method_obj.device = device  # Update device property
+        
+        # Ensure data is on the same device as model
+        for split in ['train', 'test']:
+            if isinstance(data[split]['X'], torch.Tensor):
+                data[split]['X'] = data[split]['X'].to(device)
+            if isinstance(data[split]['y'], torch.Tensor):
+                data[split]['y'] = data[split]['y'].to(device)
         
         # Setup method
         self.method_obj.data = data
-        self.method_obj.to(device)
         
         # Train model
         print("Training model...")
@@ -96,11 +107,15 @@ class Setting_CNN(setting):
         print("Testing model...")
         pred_y = self.method_obj.testing()
         
+        # Move predictions to CPU for evaluation and saving
+        if isinstance(pred_y, torch.Tensor) and pred_y.is_cuda:
+            pred_y = pred_y.cpu()
+        
         # Save results
         print("Saving results...")
         result_data = {
             'pred_y': pred_y,
-            'true_y': data['test']['y']
+            'true_y': data['test']['y'].cpu() if isinstance(data['test']['y'], torch.Tensor) and data['test']['y'].is_cuda else data['test']['y']
         }
         self.result_obj.data = result_data
         self.result_obj.save()
@@ -109,7 +124,7 @@ class Setting_CNN(setting):
         print("Evaluating results...")
         eval_data = {
             'pred_y': pred_y,
-            'true_y': data['test']['y'],
+            'true_y': data['test']['y'].cpu() if isinstance(data['test']['y'], torch.Tensor) and data['test']['y'].is_cuda else data['test']['y'],
             'history': history
         }
         self.evaluate_obj.data = eval_data

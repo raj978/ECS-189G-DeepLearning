@@ -33,6 +33,10 @@ def run_cnn_model(dataset_name, model_config=None):
     print(f"Running CNN model on {dataset_name} dataset with config: {model_config['model_name'] if model_config else 'default'}")
     print(f"{'='*50}")
     
+    # Check for CUDA
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+    
     # Default model configuration
     default_config = {
         "model_name": f"cnn_{dataset_name.lower()}_default",
@@ -64,19 +68,34 @@ def run_cnn_model(dataset_name, model_config=None):
     result_dir = "result/stage_3_result"
     plot_dir = "figures/stage_3"
     
+    # Ensure all directories exist
     os.makedirs(model_save_dir, exist_ok=True)
     os.makedirs(result_dir, exist_ok=True)
     os.makedirs(plot_dir, exist_ok=True)
+    
+    # Create dataset-specific subdirectories
+    dataset_model_dir = os.path.join(model_save_dir, dataset_name.lower())
+    dataset_result_dir = os.path.join(result_dir, dataset_name.lower())
+    dataset_plot_dir = os.path.join(plot_dir, dataset_name.lower())
+    
+    os.makedirs(dataset_model_dir, exist_ok=True)
+    os.makedirs(dataset_result_dir, exist_ok=True)
+    os.makedirs(dataset_plot_dir, exist_ok=True)
     
     # Initialize dataset loader
     data_obj = Dataset_Loader("CNN", "")
     data_obj.dataset_source_folder_path = "data/stage_3_data"
     data_obj.dataset_name = dataset_name
     
+    # Enable data augmentation for CIFAR
+    if dataset_name == "CIFAR":
+        data_obj.use_augmentation = True
+        print("Enabled data augmentation for CIFAR")
+    
     # Initialize CNN model with configuration parameters
     method_obj = Method_CNN("CNN", "")
-    method_obj.model_path = os.path.join(model_save_dir, f"{model_name}_model.pt")
-    method_obj.hist_path = os.path.join(model_save_dir, f"{model_name}_history.json")
+    method_obj.model_path = os.path.join(dataset_model_dir, f"{model_name}_model.pt")
+    method_obj.hist_path = os.path.join(dataset_model_dir, f"{model_name}_history.json")
     
     # Set dataset-specific parameters based on the dataset
     if dataset_name == "MNIST":
@@ -116,14 +135,14 @@ def run_cnn_model(dataset_name, model_config=None):
     
     # Initialize result saver
     result_obj = Result_Saver("saver", "")
-    result_dest_path = os.path.join(result_dir, f"{model_name}_prediction_result")
+    result_dest_path = os.path.join(dataset_result_dir, f"{model_name}_prediction_result")
     result_obj.result_destination_file_path = result_dest_path
-    result_obj.metrics_path = os.path.join(result_dir, f"{model_name}_metrics.json")
+    result_obj.metrics_path = os.path.join(dataset_result_dir, f"{model_name}_metrics.json")
     
     # Initialize evaluator
     evaluate_obj = Evaluate_CNN("CNN-evaluation", "")
-    evaluate_obj.plot_path = os.path.join(plot_dir, f"{model_name}_learning_curve.png")
-    evaluate_obj.metrics_path = os.path.join(result_dir, f"{model_name}_metrics.json")
+    evaluate_obj.plot_path = os.path.join(dataset_plot_dir, f"{model_name}_learning_curve.png")
+    evaluate_obj.metrics_path = os.path.join(dataset_result_dir, f"{model_name}_metrics.json")
     
     # Initialize setting
     setting_obj = Setting_CNN("CNN-setting", "")
@@ -345,15 +364,15 @@ def run_cifar_experiments():
     # Base configuration
     base_config = {
         "model_name": "cifar_base",
-        "max_epoch": 20,
-        "batch_size": 64,
+        "max_epoch": 30,
+        "batch_size": 128,
         "learning_rate": 1e-3,
         "optimizer_name": "adam",
         "loss_fn_name": "cross_entropy",
-        "conv_layers": 2,
-        "fc_layers": 2,
-        "fc_units": [256, 128],
-        "dropout_rate": 0.25,
+        "conv_layers": 3,
+        "fc_layers": 3,
+        "fc_units": [512, 256, 128],
+        "dropout_rate": 0.3,
         "kernel_size": 3,
         "stride": 1,
         "padding": 1,
@@ -365,13 +384,13 @@ def run_cifar_experiments():
     metrics = run_cnn_model("CIFAR", base_config)
     results["base"] = metrics
     
-    # Experiment 1: Deeper network
+    # Experiment 1: Deeper network with more channels
     deeper_config = base_config.copy()
     deeper_config.update({
         "model_name": "cifar_deeper",
-        "conv_layers": 3,
-        "fc_layers": 3,
-        "fc_units": [512, 256, 128]
+        "conv_layers": 4,
+        "fc_layers": 4,
+        "fc_units": [1024, 512, 256, 128]
     })
     
     print("\nRunning deeper network...")
@@ -382,14 +401,14 @@ def run_cifar_experiments():
     dropout_config = base_config.copy()
     dropout_config.update({
         "model_name": "cifar_dropout",
-        "dropout_rate": 0.5
+        "dropout_rate": 0.4
     })
     
     print("\nRunning higher dropout...")
     metrics = run_cnn_model("CIFAR", dropout_config)
     results["dropout"] = metrics
     
-    # Experiment 3: Different learning rate
+    # Experiment 3: Different learning rates
     lr_config = base_config.copy()
     lr_config.update({
         "model_name": "cifar_lr",
@@ -422,6 +441,74 @@ def run_cifar_experiments():
     print("\nRunning different pooling...")
     metrics = run_cnn_model("CIFAR", pool_config)
     results["pool_size"] = metrics
+    
+    # Experiment 6: Optimized configuration (combining best practices)
+    optimized_config = base_config.copy()
+    optimized_config.update({
+        "model_name": "cifar_optimized",
+        "max_epoch": 50,
+        "batch_size": 128,
+        "learning_rate": 5e-4,
+        "conv_layers": 4,
+        "fc_layers": 3,
+        "fc_units": [1024, 512, 256],
+        "dropout_rate": 0.4,
+        "kernel_size": 3,
+        "stride": 1,
+        "padding": 1,
+        "pool_size": 2
+    })
+    
+    print("\nRunning optimized configuration...")
+    metrics = run_cnn_model("CIFAR", optimized_config)
+    results["optimized"] = metrics
+    
+    # Experiment 7: Wide network
+    wide_config = base_config.copy()
+    wide_config.update({
+        "model_name": "cifar_wide",
+        "conv_layers": 3,
+        "fc_layers": 3,
+        "fc_units": [2048, 1024, 512],
+        "dropout_rate": 0.5
+    })
+    
+    print("\nRunning wide network...")
+    metrics = run_cnn_model("CIFAR", wide_config)
+    results["wide"] = metrics
+    
+    # Experiment 8: Learning rate schedule
+    lr_schedule_config = base_config.copy()
+    lr_schedule_config.update({
+        "model_name": "cifar_lr_schedule",
+        "learning_rate": 1e-3,
+        "max_epoch": 50
+    })
+    
+    print("\nRunning learning rate schedule...")
+    metrics = run_cnn_model("CIFAR", lr_schedule_config)
+    results["lr_schedule"] = metrics
+    
+    # Experiment 9: ResNet architecture
+    resnet_config = base_config.copy()
+    resnet_config.update({
+        "model_name": "cifar_resnet",
+        "max_epoch": 50,
+        "batch_size": 128,
+        "learning_rate": 0.1,
+        "optimizer_name": "sgd",
+        "loss_fn_name": "cross_entropy",
+        "dropout_rate": 0.4,
+        "weight_decay": 5e-4,
+        "momentum": 0.9,
+        "use_resnet": True,
+        "use_adv_optim": True,
+        "label_smoothing": 0.1
+    })
+    
+    print("\nRunning ResNet architecture...")
+    metrics = run_cnn_model("CIFAR", resnet_config)
+    results["resnet"] = metrics
     
     return results
 
@@ -465,11 +552,25 @@ def main():
                       help='List of datasets to process (MNIST, ORL, CIFAR)')
     parser.add_argument('--use_cuda', action='store_true',
                       help='Use CUDA if available')
+    parser.add_argument('--seed', type=int, default=42,
+                      help='Random seed for reproducibility')
     args = parser.parse_args()
+
+    # Set random seeds for reproducibility
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(args.seed)
+        torch.cuda.manual_seed_all(args.seed)
 
     # Set device
     device = torch.device('cuda' if args.use_cuda and torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
+    
+    # Enable cuDNN benchmark for faster training if using CUDA
+    if args.use_cuda and torch.cuda.is_available():
+        torch.backends.cudnn.benchmark = True
+        print("CUDA acceleration enabled")
 
     # Run experiments for each dataset
     all_results = {}

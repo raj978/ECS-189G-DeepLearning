@@ -142,7 +142,7 @@ class Dataset_Loader(dataset):
         return {'train': {'X': train_X, 'y': train_y}, 'test': {'X': test_X, 'y': test_y}}
     
     def load_cifar(self):
-        """Load the CIFAR-10 dataset from pickle file"""
+        """Load the CIFAR dataset"""
         print("Loading CIFAR dataset...")
         cifar_file = os.path.join(self.dataset_source_folder_path, 'CIFAR')
         
@@ -175,10 +175,35 @@ class Dataset_Loader(dataset):
         test_X = np.array(test_X)
         test_y = np.array(test_y)
         
-        # Convert to torch tensors and reshape for PyTorch CNN input (N, C, H, W)
-        # CIFAR images are (32, 32, 3), but we need (3, 32, 32) for PyTorch
-        train_X = torch.tensor(train_X, dtype=torch.float32).permute(0, 3, 1, 2) / 255.0
-        test_X = torch.tensor(test_X, dtype=torch.float32).permute(0, 3, 1, 2) / 255.0
+        # Print shapes to verify dimensions
+        print(f"CIFAR train_X shape: {train_X.shape}")  # Should be (50000, 32, 32, 3)
+        print(f"CIFAR test_X shape: {test_X.shape}")    # Should be (10000, 32, 32, 3)
+        
+        # Convert to torch tensors - rearrange channels for PyTorch format (N,C,H,W)
+        train_X = np.transpose(train_X, (0, 3, 1, 2))
+        test_X = np.transpose(test_X, (0, 3, 1, 2))
+        
+        # Convert to float and normalize to [0, 1]
+        train_X = train_X.astype(np.float32) / 255.0
+        test_X = test_X.astype(np.float32) / 255.0
+        
+        # Apply normalization for CIFAR
+        if hasattr(self, 'use_augmentation') and self.use_augmentation:
+            print("Applying normalization to CIFAR data...")
+            
+            # CIFAR-10 mean and std for each channel
+            mean = np.array([0.4914, 0.4822, 0.4465], dtype=np.float32).reshape(1, 3, 1, 1)
+            std = np.array([0.2023, 0.1994, 0.2010], dtype=np.float32).reshape(1, 3, 1, 1)
+            
+            # Normalize training data
+            train_X = (train_X - mean) / std
+            test_X = (test_X - mean) / std
+            
+            print("Data normalization complete.")
+            
+        # Convert to PyTorch tensors
+        train_X = torch.from_numpy(train_X)
+        test_X = torch.from_numpy(test_X)
         train_y = torch.tensor(train_y, dtype=torch.long)
         test_y = torch.tensor(test_y, dtype=torch.long)
         
