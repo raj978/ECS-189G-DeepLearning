@@ -10,7 +10,12 @@ Thumbs.db
 # All XML files (e.g., config, project files)
 *.xml
 
-stage_*_data
-venv
+stage_*_data/*
+.venv
 *.pt
 __pycache__
+*.png
+result
+figures
+*.json
+data
