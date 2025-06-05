@@ -14,8 +14,8 @@ stage_*_data/*
 .venv
 *.pt
 __pycache__
-*.png
+# *.png
 result
 figures
-*.json
+# *.json
 data
